@@ -28,21 +28,19 @@ def calculate_mean_and_std(img_path: str) -> Tuple[float, float]:
 
     mean = np.zeros(3)
     std = np.zeros(3)
-    n_images = 0
+    n_pixels = 0
 
     for image in os.listdir(img_path):
         im = tifffile.imread(os.path.join(img_path,image))
         h = im.shape[0]
         w = im.shape[1]
-        n_pixels = h*w
+        n_pixels += h*w
         im = einops.rearrange(im, 'H W C -> (H W) C')
-        a = im.sum(axis=0)
         mean += im.sum(axis=0) # summing along height and width, output will have shape [3]
         std += np.sum(im**2, axis=0)
-        n_images += 1
 
-    mean /=( n_images * n_pixels)
-    std = np.sqrt(std/( n_images * n_pixels))
+    mean /= n_pixels
+    std = np.sqrt(std/n_pixels)
     return mean, std
 
 
@@ -112,4 +110,3 @@ def create_dataset(img_path:str, mask_path:str) -> Dataset:
     '''
     dataset = PolypsSegmentationDataset(img_path,mask_path,transforms=t)
     return dataset
-
