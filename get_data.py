@@ -103,14 +103,13 @@ def create_dataset(img_path:str, mask_path:str) -> Dataset:
     This function is used to create the dataset with the transformations used
     Parameters
     ----------
-    img_path
-    mask_path
+    img_path: str path of the folder containing the images
+    mask_path: str path of the folder containing the masks
 
-    Returns
+    Returns: Dataset a pytorch dataset containing images, masks and transforms used
     -------
 
     '''
     dataset = PolypsSegmentationDataset(img_path,mask_path,transforms=t)
     return dataset
 
-d = create_dataset(local_images_path, local_masks_path)
