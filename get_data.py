@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import Dataset
 import numpy as np
 import albumentations as A
-from PIL import Image
+from albumentations.pytorch import ToTensorV2
 import os
 import einops
 from typing import Tuple
@@ -54,22 +54,63 @@ class PolypsSegmentationDataset(Dataset):
         self.transforms = transforms
         self.images = os.listdir(self.images_path)
         self.masks = os.listdir(self.masks_path)
-        self.l = len(images)
+        self.l = len(self.images)
 
     def __getitem__(self, item):
         # the images and the corresponding masks have the same name in the images folder and in the masks folder
-        im = Image.open(os.path.join(self.images_path, self.images[item])).convert('RGB') # to ensure they are in RGB format
-        mask_index = self.masks.index(self.images[item]).convert('L') # to ensure the masks are grayscale
-        m = Image.open(os.path.join(self.masks_path, self.masks[mask_index]))
+        im = tifffile.imread(os.path.join(self.images_path, self.images[item]))
+        mask_index = self.masks.index(self.images[item])
+        m = tifffile.imread(os.path.join(self.masks_path, self.masks[mask_index]))
 
         if self.transforms:
-            im = np.array(im)
-            m = np.array(m)
+            # the output of tiffile.imread() is already a numpy array
             augmented = self.transforms(image=im, mask=m)
             img = augmented['image']
             m = augmented['mask']
             return img,m
 
+    def __len__(self):
+        return self.l
+
 m,s = calculate_mean_and_std(local_images_path)
-print(m)
-print(s)
+
+t = A.Compose([
+    A.Resize(img_size,img_size),
+    A.Rotate(
+        limit=(-180, 180),
+        interpolation=1,
+        border_mode=4,
+        value=None,
+        mask_value=None,
+        rotate_method="largest_box",
+        crop_border=False,
+        always_apply=False,
+        p=0.5
+    ),
+    A.VerticalFlip(p=0.5),
+    A.HorizontalFlip(p=0.5),
+    A.ElasticTransform(alpha=1,
+                       sigma=50,
+                       alpha_affine=50),
+    A.MotionBlur(blur_limit=11),
+    A.Normalize(mean=(102.20527125, 68.70382564, 46.94900982),
+                std=(10.57763722, 10.68416642, 10.85330282)), # calculated using the function written above
+    ToTensorV2()
+])
+
+def create_dataset(img_path:str, mask_path:str) -> Dataset:
+    '''
+    This function is used to create the dataset with the transformations used
+    Parameters
+    ----------
+    img_path
+    mask_path
+
+    Returns
+    -------
+
+    '''
+    dataset = PolypsSegmentationDataset(img_path,mask_path,transforms=t)
+    return dataset
+
+d = create_dataset(local_images_path, local_masks_path)
