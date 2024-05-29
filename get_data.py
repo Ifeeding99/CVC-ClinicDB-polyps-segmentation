@@ -43,34 +43,7 @@ def calculate_mean_and_std(img_path: str) -> Tuple[float, float]:
     std = np.sqrt(std/n_pixels)
     return mean, std
 
-
-
-class PolypsSegmentationDataset(Dataset):
-    def __init__(self, images_path, masks_path, transforms=None):
-        self.images_path = images_path
-        self.masks_path = masks_path
-        self.transforms = transforms
-        self.images = os.listdir(self.images_path)
-        self.masks = os.listdir(self.masks_path)
-        self.l = len(self.images)
-
-    def __getitem__(self, item):
-        # the images and the corresponding masks have the same name in the images folder and in the masks folder
-        im = tifffile.imread(os.path.join(self.images_path, self.images[item]))
-        mask_index = self.masks.index(self.images[item])
-        m = tifffile.imread(os.path.join(self.masks_path, self.masks[mask_index]))
-
-        if self.transforms:
-            # the output of tiffile.imread() is already a numpy array
-            augmented = self.transforms(image=im, mask=m)
-            img = augmented['image']
-            m = augmented['mask']
-            return img,m
-
-    def __len__(self):
-        return self.l
-
-m,s = calculate_mean_and_std(local_images_path)
+#m,s = calculate_mean_and_std(local_images_path)
 
 t = A.Compose([
     A.Resize(img_size,img_size),
@@ -93,8 +66,35 @@ t = A.Compose([
     A.MotionBlur(blur_limit=11),
     A.Normalize(mean=(102.20527125, 68.70382564, 46.94900982),
                 std=(10.57763722, 10.68416642, 10.85330282)), # calculated using the function written above
-    ToTensorV2()
+    ToTensorV2(transpose_mask=True) # to put the mask too in C H W format
 ])
+
+class PolypsSegmentationDataset(Dataset):
+    def __init__(self, images_path = local_images_path, masks_path = local_masks_path, transforms=t):
+        self.images_path = images_path
+        self.masks_path = masks_path
+        self.transforms = transforms
+        self.images = os.listdir(self.images_path)
+        self.masks = os.listdir(self.masks_path)
+        self.l = len(self.images)
+
+    def __getitem__(self, item):
+        # the images and the corresponding masks have the same name in the images folder and in the masks folder
+        im = tifffile.imread(os.path.join(self.images_path, self.images[item]))
+        mask_index = self.masks.index(self.images[item])
+        m = tifffile.imread(os.path.join(self.masks_path, self.masks[mask_index]))
+        m = np.expand_dims(m,axis=2) # I need the mask to have shape H W 1
+        m = m / 255 # to scale between 0 and 1 the masks
+
+        if self.transforms:
+            # the output of tiffile.imread() is already a numpy array
+            augmented = self.transforms(image=im, mask=m)
+            im = augmented['image']
+            m = augmented['mask']
+        return im,m
+
+    def __len__(self):
+        return self.l
 
 def create_dataset(img_path:str, mask_path:str) -> Dataset:
     '''

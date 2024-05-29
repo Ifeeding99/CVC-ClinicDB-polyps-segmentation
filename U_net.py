@@ -62,7 +62,7 @@ class UNet(nn.Module):
         self.ascending_block_3 = ConvBlock(in_channels=64*2, out_channels=64, k_size=3, stride=1, padding=1, n_layers=3)
         self.ascending_block_4 = ConvBlock(in_channels=32*2, out_channels=32, k_size=3, stride=1, padding=1, n_layers=3)
 
-        self.final_conv = nn.Conv2d(in_channels=32, out_channels=1,kernel_size=3, stride=1, padding=1)
+        self.final_conv = nn.Conv2d(in_channels=32, out_channels=1,kernel_size=1, stride=1, padding=0)
 
     def forward(self, x):
         x = self.descending_block_1(x)
