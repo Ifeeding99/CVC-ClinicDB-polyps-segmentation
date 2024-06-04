@@ -35,15 +35,20 @@ def calculate_mean_and_std(img_path: str) -> Tuple[float, float]:
         h = im.shape[0]
         w = im.shape[1]
         n_pixels += h*w
-        im = einops.rearrange(im, 'H W C -> (H W) C')
-        mean += im.sum(axis=0) # summing along height and width, output will have shape [3]
-        std += np.sum(im**2, axis=0)
+        im = einops.rearrange(im, 'H W C -> C (H W)')
+        mean += im.sum(axis=1) # summing along height and width, output will have shape [3]
 
     mean /= n_pixels
+    for image in os.listdir(img_path):
+        im = tifffile.imread(os.path.join(img_path,image))
+        im = einops.rearrange(im, 'H W C -> (H W) C')
+        std_matrix = (im - mean)**2
+        std += std_matrix.sum(axis=0)
+
     std = np.sqrt(std/n_pixels)
     return mean, std
 
-#m,s = calculate_mean_and_std(local_images_path)
+m,s = calculate_mean_and_std(local_images_path)
 
 t = A.Compose([
     A.Resize(img_size,img_size),
@@ -65,7 +70,7 @@ t = A.Compose([
                        alpha_affine=50),
     A.MotionBlur(blur_limit=11),
     A.Normalize(mean=(102.20527125, 68.70382564, 46.94900982),
-                std=(10.57763722, 10.68416642, 10.85330282)), # calculated using the function written above
+                std=(76.10290669, 52.26579002, 35.61231149)), # calculated using the function written above
     ToTensorV2(transpose_mask=True) # to put the mask too in C H W format
 ])
 
